@@ -11,6 +11,9 @@ include $(TOP)/configure/CONFIG
 # Create and install (or just install) into <top>/db
 # databases, templates, substitutions like this
 #DB += xxx.db
+DB += EnsemblePSOFly.db
+DB += EnsemblePSOFly_settings.req
+DB += EnsemblePVerr.db
 
 #----------------------------------------------------
 # If <anyname>.db template is not named <anyname>*.template add
