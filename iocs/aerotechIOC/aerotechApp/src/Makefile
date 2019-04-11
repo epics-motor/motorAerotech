@@ -21,12 +21,17 @@ aerotech_DBD += base.dbd
 # Include dbd files from all support applications:
 #ifdef ASYN
 aerotech_DBD += asyn.dbd
+aerotech_DBD += drvAsynSerialPort.dbd
+aerotech_DBD += drvAsynIPPort.dbd
 #endif
 aerotech_DBD += motorSupport.dbd
 aerotech_DBD += devAerotech.dbd
+#ifdef SNCSEQ
+aerotech_DBD += devAerotechSeq.dbd
+#endif
 
 # Add all the support libraries needed by this IOC
-aerotech_LIBS += aerotech
+aerotech_LIBS += Aerotech
 aerotech_LIBS += motor
 #ifdef ASYN
 aerotech_LIBS += asyn
