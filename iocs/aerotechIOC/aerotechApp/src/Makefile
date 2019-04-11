@@ -5,6 +5,9 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
+# The following are used for debugging messages.
+#!USR_CXXFLAGS += -DDEBUG
+
 #=============================
 # Build the IOC application
 
@@ -16,10 +19,21 @@ DBD += aerotech.dbd
 aerotech_DBD += base.dbd
 
 # Include dbd files from all support applications:
-#aerotech_DBD += xxx.dbd
+#ifdef ASYN
+aerotech_DBD += asyn.dbd
+#endif
+aerotech_DBD += motorSupport.dbd
+aerotech_DBD += devAerotech.dbd
 
 # Add all the support libraries needed by this IOC
-#aerotech_LIBS += xxx
+aerotech_LIBS += aerotech
+aerotech_LIBS += motor
+#ifdef ASYN
+aerotech_LIBS += asyn
+#endif
+#ifdef SNCSEQ
+aerotech_LIBS += seq pv
+#endif
 
 # aerotech_registerRecordDeviceDriver.cpp derives from aerotech.dbd
 aerotech_SRCS += aerotech_registerRecordDeviceDriver.cpp

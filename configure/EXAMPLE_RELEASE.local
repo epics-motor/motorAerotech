@@ -1,0 +1,4 @@
+MOTOR=
+-include $(MOTOR)/configure/RELEASE
+# path to motorAerotech is needed to build the IOC inside motorAerotech, but outside motor
+MOTOR_AEROTECH=
