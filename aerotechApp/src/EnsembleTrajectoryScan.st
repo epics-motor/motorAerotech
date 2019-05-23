@@ -79,6 +79,7 @@ char abortCommand[MAX_MESSAGE_STRING];
 char *asynPort;
 char *pasynUser;   /* This is really asynUser* */
 int status;
+int *pstatus; /* so escaped C code can set status */
 int i;
 int j;
 int k;
@@ -95,6 +96,7 @@ char motorName[NAME_LEN];
 int initStatus;
 int limitViolation;
 int loadingTrajectory;
+int actualNumTrajectoryPoints;
 
 /* All PVs which will be accessed in local C functions need to have their index
  * extracted with pvIndex() */
@@ -125,7 +127,8 @@ int abortState;
 %% static int buildTrajectory(SS_ID ssId, struct UserVar *pVar, double *timeTrajectory,
 %% double *motorTrajectory, int epicsMotorDir, int moveMode, int npoints, int npulses, double motorOffset,
 %% double motorResolution, double *velocity);
-%% static int loadTrajectory(SS_ID ssId, struct UserVar *pVar);
+%% static int loadTrajectory(SS_ID ssId, struct UserVar *pVar, int *pstatus);
+%% static int executeTrajectory(SS_ID ssId, struct UserVar *pVar);
 %% static int userToRaw(double user, double off, int dir, double res);
 %% static double rawToUser(int raw, double off, int dir, double res);
 %% static int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *callerReply, int checkProgram);
@@ -133,6 +136,7 @@ int abortState;
 %% 	double *motorTrajectory, double *realTimeTrajectory, int npoints, double *motorError);
 %% int writeDoubleAndCheck(SS_ID ssId, struct UserVar *pVar, int n, double d);
 %% int writeIntAndCheck(SS_ID ssId, struct UserVar *pVar, int n, int ival);
+%% int writeReadIntAndCheck(SS_ID ssId, struct UserVar *pVar, int n, int ival, char *callerReply);
 double position[MAX_AXES][MAX_ELEMENTS];
 double velocity[MAX_AXES][MAX_ELEMENTS];
 /*double motorStart[MAX_AXES]; now in header and assigned to PVs */
@@ -150,8 +154,8 @@ double amax;
 double d, dlast;
 
 /* variables to control acquisition of scope data */
-#define GLOBALINDEXSTART 50
-#define USE_SCOPE 1
+#define IGLOBALINDEXSTART 50
+#define USE_SCOPE 0
 #if USE_SCOPE
 int nScopeDataPoints;
 int scopeDataIntervalMS;
@@ -177,6 +181,7 @@ ss EnsembleTrajectoryScan {
 	/* Initialize things when first starting */
 	state init {
 		when() {
+			pstatus = &status;
 			if (debugLevel) printf("EnsembleTrajectoryScan:init: entry\n");
 			initStatus = STATUS_UNDEFINED;
 			/* Force numAxes to be <= MAX_AXES */
@@ -319,11 +324,11 @@ ss EnsembleTrajectoryScan {
 			/* If nelements changes, then change endPulses to this value,
 			 * since this is what the user normally wants.  endPulses can be
 			 * changed again after changing nelements if this is desired. */
-			if (nelements > (numGlobalDoubles/3 - 3)) {
+			if (nelements > ((numGlobalDoubles-iFirstTrajDGLOBAL)/3 - 3)) {
 				/* The Ensemble has an array of doubles we use to send the trajectory.  The number of
 				 * elements in that array must be configured using the "Configuration Manager".
 				 */ 
-				nelements = numGlobalDoubles/3 - 3;
+				nelements = (numGlobalDoubles-iFirstTrajDGLOBAL)/3 - 3 ;
 				pvPut(nelements);
 			}
 			endPulses = nelements;
@@ -439,6 +444,27 @@ ss EnsembleTrajectoryScan {
 			if (debugLevel>1) printf("limitViolation=%d\n", limitViolation);
 			if (limitViolation) {
 				buildStatus = STATUS_FAILURE;
+			} else {
+				/* Get the initial (pretrajectory) and start (preaccel) positions of the motors */
+				for (j=0; j<numAxes; j++) {
+					initialPos[j] = epicsMotorPos[j];
+					motorStart[j] = motorTrajectory[j][0] - (velocity[j][0] * epicsMotorACCL[j]) / 2;
+					if (moveMode != MOVE_MODE_ABSOLUTE) motorStart[j] += epicsMotorPos[j];
+					pvPut(motorStart[j]);
+				}
+
+				/* Move to start position */
+				for (j=0; j<numAxes; j++) {
+					if (moveAxis[j]) {
+						epicsMotorPos[j] = motorStart[j];
+						pvPut(epicsMotorPos[j]);
+						if (debugLevel > 0) printf("\nstate build: moving motor %d to %f\n", j, epicsMotorPos[j]);
+					}
+				}
+				%%waitEpicsMotors(ssId, pVar);
+
+				%%loadTrajectory(ssId, pVar, pVar->pstatus);
+				if (*pstatus) buildStatus = STATUS_FAILURE;
 			}
 
 			/* Set status and message string */
@@ -456,6 +482,7 @@ ss EnsembleTrajectoryScan {
 				epicsSnprintf(buildMessage, MSGSIZE, "Done");
 				pvPut(buildMessage);
 			}
+
 		} state monitor_inputs
 	}
 
@@ -481,7 +508,7 @@ ss EnsembleTrajectoryScan {
 				if (moveMode != MOVE_MODE_ABSOLUTE) motorStart[j] += epicsMotorPos[j];
 				pvPut(motorStart[j]);
 			}
-			/* Move to start position */
+			/* Make sure we're at start position.  (We should already be there, because state build also does this.) */
 			for (j=0; j<numAxes; j++) {
 				if (moveAxis[j]) {
 					epicsMotorPos[j] = motorStart[j];
@@ -521,11 +548,8 @@ ss EnsembleTrajectoryScan {
 				for (j=0, movingMask = 0; j<numAxes; j++) {
 					if (moveAxis[j]) movingMask |= (1<<j);
 				}
-				/* The trajectory will usually begin executing while it is being loaded,
-				 * because the Ensemble has only a 14-point FIFO for trajectory commands.
-				 */
 				 for (i=0; i<10; i++) {
-					%%pVar->status = loadTrajectory(ssId, pVar);
+					%%pVar->status = executeTrajectory(ssId, pVar);
 					if (status == -2) {
 						printf("Trying trajectory again\n");
 					} else {
@@ -675,11 +699,11 @@ ss EnsembleTrajectoryScan {
 
 #if USE_DATAACQ
 			nAcqDataPoints = 1 + endPulses - startPulses;
-			sprintf(stringOut, "DATAACQ_READ @0 %d %d", GLOBALINDEXSTART, nAcqDataPoints);
+			sprintf(stringOut, "DATAACQ_READ @0 %d %d", IGLOBALINDEXSTART, nAcqDataPoints);
 			%%pVar->status = sendReceiveCommand(ssId, pVar, pVar->stringOut, pVar->stringIn, 1);
 			%%pVar->status = sendReceiveCommand(ssId, pVar, "DATACQ_OFF @0", pVar->stringIn, 0);
 			for (i=0; i<nAcqDataPoints; i++) {
-				sprintf(stringOut, "IGLOBAL(%d)", i+GLOBALINDEXSTART);
+				sprintf(stringOut, "IGLOBAL(%d)", i+IGLOBALINDEXSTART);
 				%%pVar->status = writeRead(ssId, pVar, pVar->stringOut, pVar->stringIn);
 				if (stringIn[0] == '%') {
 					motorReadbacks[0][i] = atoi(&stringIn[1]) * epicsMotorMres[0];
@@ -918,6 +942,7 @@ static int buildTrajectory(SS_ID ssId, struct UserVar *pVar, double *realTimeTra
 	double dp, dt, maxV=0;
 	int i, status;
 	char stringOut[MAX_MESSAGE_STRING], reply[MAX_MESSAGE_STRING];
+	int version_major, version_minor;
 
 	sprintf(stringOut, "GETPARM(%d)", VelocityCommandThreshold_PARM_NUM);
 	status = writeRead(ssId, pVar, stringOut, reply);
@@ -926,6 +951,21 @@ static int buildTrajectory(SS_ID ssId, struct UserVar *pVar, double *realTimeTra
 		maxV = atof(&reply[1]);
 	} else {
 		printf("buildTrajectory: Can't read velocityCommandThreshold parameter\n");
+		return(-1);
+	}
+
+	/* check version number of doCommand.ab program */
+	status = writeIntAndCheck(ssId, pVar, iarg1Var, 0);	/* init variable into which doCommand will write major version number */
+	strcpy(stringOut, "VERSION");
+	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
+	sprintf(stringOut, "IGLOBAL(%d)", iarg1Var);	/* get major version number from controller */
+	status = writeRead(ssId, pVar, stringOut, reply);
+	version_major = atol(&reply[1]);
+	sprintf(stringOut, "IGLOBAL(%d)", iarg2Var);	/* get minor version number */
+	status = writeRead(ssId, pVar, stringOut, reply);
+	version_minor = atol(&reply[1]);
+	if (version_major < 1 || version_minor < 2) {
+		printf("buildTrajectory: I need version 1.2 or higher of doCommand.ab (currV=%d.%d)\n", version_major, version_minor);
 		return(-1);
 	}
 
@@ -1054,40 +1094,59 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 	cmdNum = cmdDONE;
 	if (strncmp(cmd, "VELOCITY ON", strlen("VELOCITY ON")) == 0) {
 		cmdNum = cmdVELOCITY_ON;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdVELOCITY_ON);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdVELOCITY_ON, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdVELOCITY_ON);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
+	} else if (strncmp(cmd, "VERSION", strlen("VERSION")) == 0) {
+		cmdNum = cmdVERSION;
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdVERSION, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdVERSION);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
+		/* AeroBasic passes major/minor version back in IGLOBAL(iarg1Var) and IGLOBAL(iarg2Var) */
 	} else if (strncmp(cmd, "DOTRAJECTORY", strlen("DOTRAJECTORY")) == 0) {
 		cmdNum = cmdDOTRAJECTORY;
+		/*status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDOTRAJECTORY, reply);*/
 		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDOTRAJECTORY);
 		status = writeRead(ssId, pVar, stringOut, reply);
+	} else if (strncmp(cmd, "DOSTOREDTRAJ", strlen("DOSTOREDTRAJ")) == 0) {
+		cmdNum = cmdDOSTOREDTRAJ;
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDOSTOREDTRAJ, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDOSTOREDTRAJ);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "VELOCITY OFF", strlen("VELOCITY OFF")) == 0) {
 		cmdNum = cmdVELOCITY_OFF;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdVELOCITY_OFF);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdVELOCITY_OFF, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdVELOCITY_OFF);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "HALT", strlen("HALT")) == 0) {
 		cmdNum = cmdHALT;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdHALT);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdHALT, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdHALT);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "STARTABORT", strlen("STARTABORT")) == 0) {
 		cmdNum = cmdSTARTABORT;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSTARTABORT);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSTARTABORT, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSTARTABORT);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "START", strlen("START")) == 0) {
 		cmdNum = cmdSTART;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSTART);
-		if (callerReply != NULL) {
-			status = writeRead(ssId, pVar, stringOut, reply);
-		} else {
-			status = writeOnly(ssId, pVar, stringOut);
-		}
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSTART, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSTART);*/
+		/*if (callerReply != NULL) {*/
+		/*	status = writeRead(ssId, pVar, stringOut, reply);*/
+		/*} else {*/
+		/*	status = writeOnly(ssId, pVar, stringOut);*/
+		/*}*/
 	} else if (strncmp(cmd, "PVT INIT TIME ABS", strlen("PVT INIT TIME ABS")) == 0) {
 		cmdNum = cmdPVT_INIT_TIME_ABS;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT_INIT_TIME_ABS);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdPVT_INIT_TIME_ABS, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT_INIT_TIME_ABS);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "PVT INIT TIME INC", strlen("PVT INIT TIME INC")) == 0) {
 		cmdNum = cmdPVT_INIT_TIME_INC;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT_INIT_TIME_INC);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdPVT_INIT_TIME_INC, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT_INIT_TIME_INC);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "PVT1", strlen("PVT1")) == 0) {
 		cmdNum = cmdPVT1;
 		sscanf(cmd, "PVT1 %d %lf,%lf TIME %lf", &i1, &d1, &d2, &d3);
@@ -1095,8 +1154,9 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 		status = writeDoubleAndCheck(ssId, pVar, darg1Var, d1);
 		status = writeDoubleAndCheck(ssId, pVar, darg2Var, d2);
 		status = writeDoubleAndCheck(ssId, pVar, darg3Var, d3);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT1);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdPVT1, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdPVT1);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "ABORT", strlen("ABORT")) == 0) {
 		cmdNum = cmdABORT;
 		i1 = i2 = i3 = i4 = -1;
@@ -1106,46 +1166,53 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 		status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
 		status = writeIntAndCheck(ssId, pVar, iarg3Var, i3);
 		status = writeIntAndCheck(ssId, pVar, iarg4Var, i4);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdABORT);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdABORT, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdABORT);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "SCOPEBUFFER", strlen("SCOPEBUFFER")) == 0) {
 		cmdNum = cmdSCOPEBUFFER;
 		i1 = 0;
 		i = sscanf(cmd, "SCOPEBUFFER %d", &i1);
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPEBUFFER);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPEBUFFER, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPEBUFFER);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "SCOPEDATA", strlen("SCOPEDATA")) == 0) {
 		cmdNum = cmdSCOPEDATA;
 		i1 = i2 = 0;
 		i = sscanf(cmd, "SCOPEDATA %d %d", &i1, &i2);
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 		status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPEDATA);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPEDATA, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPEDATA);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "SCOPESTATUS", strlen("SCOPESTATUS")) == 0) {
 		cmdNum = cmdSCOPESTATUS;
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPESTATUS);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPESTATUS, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPESTATUS);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		/* AeroBasic passes status back in IGLOBAL(iarg1Var) */
 	} else if (strncmp(cmd, "SCOPETRIG STOP", strlen("SCOPETRIG STOP")) == 0) {
 		cmdNum = cmdSCOPETRIG;
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, 1);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIG);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPETRIG, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIG);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "SCOPETRIGPERIOD", strlen("SCOPETRIGPERIOD")) == 0) {
 		cmdNum = cmdSCOPETRIGPERIOD;
 		/* Note period is in ms, though several faster rates are possible */
 		i1 = 0;
 		i = sscanf(cmd, "SCOPETRIGPERIOD %d", &i1);
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIGPERIOD);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPETRIGPERIOD, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIGPERIOD);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "SCOPETRIG", strlen("SCOPETRIG")) == 0) {
 		cmdNum = cmdSCOPETRIG;
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, 0);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIG);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdSCOPETRIG, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdSCOPETRIG);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "LINEAR", strlen("LINEAR")) == 0) {
 		cmdNum = cmdLINEAR;
 		i1 = 0;
@@ -1154,8 +1221,9 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 		status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 		status = writeDoubleAndCheck(ssId, pVar, darg1Var, d1);
 		status = writeDoubleAndCheck(ssId, pVar, darg2Var, d2);
-		sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdLINEAR);
-		status = writeRead(ssId, pVar, stringOut, reply);
+		status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdLINEAR, reply);
+		/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdLINEAR);*/
+		/*status = writeRead(ssId, pVar, stringOut, reply);*/
 	} else if (strncmp(cmd, "DATAACQ", strlen("DATAACQ")) == 0) {
 		if (strncmp(cmd, "DATAACQ_TRIG", strlen("DATAACQ_TRIG")) == 0) {
 			cmdNum = cmdDATAACQ_TRIG;
@@ -1163,31 +1231,35 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 			i = sscanf(cmd, "DATAACQ_TRIG @%d %d", &i1, &i2);
 			status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 			status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
-			sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_TRIG);
-			status = writeRead(ssId, pVar, stringOut, reply);
+			status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDATAACQ_TRIG, reply);
+			/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_TRIG);*/
+			/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		} else if (strncmp(cmd, "DATAACQ_INP", strlen("DATAACQ_INP")) == 0) {
 			cmdNum = cmdDATAACQ_INP;
 			i1 = i2 = 0;
 			i = sscanf(cmd, "DATAACQ_INP @%d %d", &i1, &i2);
 			status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 			status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
-			sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_INP);
-			status = writeRead(ssId, pVar, stringOut, reply);
+			status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDATAACQ_INP, reply);
+			/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_INP);*/
+			/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		} else if (strncmp(cmd, "DATAACQ_ON", strlen("DATAACQ_ON")) == 0) {
 			cmdNum = cmdDATAACQ_ON;
 			i1 = i2 = 0;
 			i = sscanf(cmd, "DATAACQ_ON @%d %d", &i1, &i2);
 			status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 			status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
-			sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_ON);
-			status = writeRead(ssId, pVar, stringOut, reply);
+			status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDATAACQ_ON, reply);
+			/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_ON);*/
+			/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		} else if (strncmp(cmd, "DATAACQ_OFF", strlen("DATAACQ_OFF")) == 0) {
 			cmdNum = cmdDATAACQ_OFF;
 			i1 = 0;
 			i = sscanf(cmd, "DATAACQ_OFF @%d", &i1);
 			status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
-			sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_OFF);
-			status = writeRead(ssId, pVar, stringOut, reply);
+			status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDATAACQ_OFF, reply);
+			/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_OFF);*/
+			/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		} else if (strncmp(cmd, "DATAACQ_READ", strlen("DATAACQ_READ")) == 0) {
 			cmdNum = cmdDATAACQ_READ;
 			i1 = i2 = i3 = 0;
@@ -1195,8 +1267,9 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 			status = writeIntAndCheck(ssId, pVar, iarg1Var, i1);
 			status = writeIntAndCheck(ssId, pVar, iarg2Var, i2);
 			status = writeIntAndCheck(ssId, pVar, iarg3Var, i3);
-			sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_READ);
-			status = writeRead(ssId, pVar, stringOut, reply);
+			status = writeReadIntAndCheck(ssId, pVar, cmdVar, cmdDATAACQ_READ, reply);
+			/*sprintf(stringOut, "IGLOBAL(%d) = %d", cmdVar, cmdDATAACQ_READ);*/
+			/*status = writeRead(ssId, pVar, stringOut, reply);*/
 		} else {
 			cmdNum = -1;
 			printf("sendReceiveCommand: unexpected command: '%s'\n", cmd);
@@ -1204,16 +1277,17 @@ int sendReceiveCommand(SS_ID ssId, struct UserVar *pVar, char *cmd, char *caller
 		}
 	}
 
-	/* Wait for IGLOBAL(cmdVar) to be reset to zero, but don't wait for the "DOTRAJECTORY" command,
-	 * because it doesn't complete until the trajectory has been executed.
+	/* Wait for IGLOBAL(cmdAckVar) to be set to IGLOBAL(cmdVar), but don't wait for the "DOTRAJECTORY" or "DOSTOREDTRAJ"
+	 * commands, because they don't complete until the trajectory has been executed.
 	 */
 	i = 0;
-	if (cmdNum != cmdDOTRAJECTORY) {
-		sprintf(stringOut, "IGLOBAL(%d)", cmdVar);
+	if ((cmdNum != cmdDOTRAJECTORY) && (cmdNum != cmdDOSTOREDTRAJ)) {
+		sprintf(stringOut, "IGLOBAL(%d)", cmdAckVar);
 		for (i=0; i<WAITLOOPS; i++) {
 			status = writeRead(ssId, pVar, stringOut, reply);
 			if (reply[0] == '%') {
-				if (atoi(&reply[1]) == -cmdNum) break;
+				if (pVar->debugLevel >= 10) printf("atoi(&reply[1])=%d, cmdNum=%d\n", atoi(&reply[1]), cmdNum);
+				if (atoi(&reply[1]) == cmdNum) break;
 			} 
 			epicsThreadSleep(WAITTIME);
 		}
@@ -1273,18 +1347,35 @@ int writeIntAndCheck(SS_ID ssId, struct UserVar *pVar, int n, int ival) {
 	return(0);
 }
 
+int writeReadIntAndCheck(SS_ID ssId, struct UserVar *pVar, int n, int ival, char *callerReply) {
+	char stringOut[MAX_MESSAGE_STRING], reply[MAX_MESSAGE_STRING];
+	int iCheck = -ival;
+	int i, status;
+	
+	status = writeIntAndCheck(ssId, pVar, cmdAckVar, 0);
+	for (i=0; i<10; i++) {
+		sprintf(stringOut, "IGLOBAL(%d) = %d", n, ival);
+		status = writeRead(ssId, pVar, stringOut, callerReply);
+		if (status) return(-1);
+		sprintf(stringOut, "IGLOBAL(%d)", n);
+		status = writeRead(ssId, pVar, stringOut, reply);
+		if (status) return(-1);
+		iCheck = atol(&reply[1]);
+		if (ival == iCheck) break;
+		printf("writeReadIntAndCheck: fix iglobal %d (%d != %d)\n", n, ival, iCheck);
+	}
+	if (i==10) return(-1);
+	return(0);
+}
 
-/* For trajectories of unlimited length, PVT commands can be executed via sendReceiveCommand(),
- * but this has not been reliable enough, so if PVT_BY_CONTROLLER, we send the whole trajectory
- * to the controller via DGLOBAL variables.
- */
-#define PVT_BY_CONTROLLER 1
+
+/* Send the trajectory to the controller via DGLOBAL variables. */
 
 /**************************************************************************************/
-static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
+static int loadTrajectory(SS_ID ssId, struct UserVar *pVar, int *pstatus) {
 	int i, j, n, status;
 	char stringOut[MAX_MESSAGE_STRING], reply[MAX_MESSAGE_STRING];
-	double position, p, v, t, dp, dtime;
+	double position, p, v, t;
 	int iGlobalIndex;
 	int intPosition;
 	double accelDist, accelTime, decelDist, decelTime, positionLast;
@@ -1292,7 +1383,7 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 	double posfbkprog, posfbkcal;
 
 	pVar->loadingTrajectory = 1;
-
+	*pstatus = 0; /* assume success */
 	sprintf(stringOut, "getparm(@0,%d)", ReverseMotionDirection_PARM_NUM);
 	status = writeRead(ssId, pVar, stringOut, reply);
 	encoder_runs_backwards = atoi(&reply[1]);
@@ -1317,13 +1408,6 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 		pVar->motorPosOffset[j] = posfbkprog - posfbkcal;
 	}
 
-#if 1
-	if (pVar->pulseMode != PULSE_MODE_NONE) {
-
-		strcpy(stringOut, "PSOCONTROL @0 RESET");
-		status = writeRead(ssId, pVar, stringOut, reply);
-	}
-#endif
 	/* We can write an array of positions at which PSO pulses are wanted, and the array can be either
 	 * the trajectory points, or points specified by the user in pulsePositions[].  If we're doing this,
 	 * we'd like not to write the PSO positions unless they have changed.  If we're doing pulses at
@@ -1335,9 +1419,7 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 	if ((pVar->pulseMode == PULSE_MODE_ARRAY) || (pVar->pulseMode == PULSE_MODE_TRAJPTS)) {
 		/* Program PSO array output */
 		int np;
-		int maxArrayPulses = MIN(MAX_PSO_PULSES, pVar->numGlobalIntegers - GLOBALINDEXSTART);
-		
-		
+		int maxArrayPulses = MIN(MAX_PSO_PULSES, pVar->numGlobalIntegers - IGLOBALINDEXSTART);
 
 		if ((pVar->pulseMode == PULSE_MODE_ARRAY) &&
 			(pVar->pulsePositionsLoaded != PULSE_POSITIONS_LOADED_ARRAY)) {
@@ -1345,11 +1427,13 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 			j = 0; /* For now, we only support one motor */
 			/* user has loaded an array of pulse positions into pulsePositions[] */
 			positionLast = pVar->motorStart[j];
-			iGlobalIndex = GLOBALINDEXSTART;
-			if (pVar->numGlobalIntegers < (pVar->numPulsePositions + GLOBALINDEXSTART)) {
+			if (pVar->debugLevel) printf("loadTrajectory: motorStart=%f, pVar->pulsePositions[0]=%f\n",
+				pVar->motorStart[j], pVar->pulsePositions[0]);
+			iGlobalIndex = IGLOBALINDEXSTART;
+			if (pVar->numGlobalIntegers < (pVar->numPulsePositions + IGLOBALINDEXSTART)) {
 				printf("EnsembleTrajectoryScan: The Ensemble only has enough global integers for %d pulses\n",
-					pVar->numGlobalIntegers - GLOBALINDEXSTART);
-				pVar->numPulsePositions = pVar->numGlobalIntegers - GLOBALINDEXSTART;
+					pVar->numGlobalIntegers - IGLOBALINDEXSTART);
+				pVar->numPulsePositions = pVar->numGlobalIntegers - IGLOBALINDEXSTART;
 			}
 			if (pVar->numPulsePositions > MAX_PSO_PULSES) {
 				printf("EnsembleTrajectoryScan: The Ensemble can't load more than %d PSOARRAY pulses\n",
@@ -1372,10 +1456,10 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 			if (pVar->debugLevel > 2) printf("loadTrajectory: load PULSE_MODE_TRAJPTS array\n");
 			j = 0; /* For now, we only support one motor */
 			positionLast = pVar->motorStart[j];
-			iGlobalIndex = GLOBALINDEXSTART;
-			if (pVar->numGlobalIntegers < (pVar->nelements + GLOBALINDEXSTART)) {
+			iGlobalIndex = IGLOBALINDEXSTART;
+			if (pVar->numGlobalIntegers < (pVar->nelements + IGLOBALINDEXSTART)) {
 				printf("EnsembleTrajectoryScan: The Ensemble only has enough global integers for %d pulses\n",
-					pVar->numGlobalIntegers - GLOBALINDEXSTART);
+					pVar->numGlobalIntegers - IGLOBALINDEXSTART);
 			}
 			if (pVar->nelements > MAX_PSO_PULSES) {
 				printf("EnsembleTrajectoryScan: The Ensemble can't load more than %d PSOARRAY pulses\n",
@@ -1396,50 +1480,7 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 			pVar->numPulsePositionsLoaded = np;
 		}
 
-		/* Copy from IGLOBAL variables into the drive array */
-		sprintf(stringOut, "PSOARRAY @0,%d,%d", GLOBALINDEXSTART, pVar->numPulsePositionsLoaded);
-		status = writeRead(ssId, pVar, stringOut, reply);
-		/* Send PSO pulses at specified positions. */
-		strcpy(stringOut, "PSODISTANCE @0 ARRAY");
-		status = writeRead(ssId, pVar, stringOut, reply);
 	}
-	/* digital I/O commands */
-	/* For HLe controller, set parameter Axis:I/O:EncoderDivider to nonzero
-	 * value to make the Aux I/O an output.
-	 * Also, I set the Axis:I/O:IOSetup parameter to configure the Opto Output Mode
-	 * for current sourcing.
-	 */
-	if (pVar->pulseMode != PULSE_MODE_NONE) {
-
-		/* (total time, on time) in microseconds */
-		sprintf(stringOut, "PSOPULSE @0 TIME %f,%f", pVar->pulseLenUS*1.5, pVar->pulseLenUS);
-		status = writeRead(ssId, pVar, stringOut, reply);
-		strcpy(stringOut, "PSOOUTPUT @0 PULSE");
-		status = writeRead(ssId, pVar, stringOut, reply);
-
-		/* some controllers need to track source 3 instead of 1. */
-		/* strcpy(stringOut, "PSOTRACK @0 INPUT 1"); */
-		sprintf(stringOut, "PSOTRACK @0 INPUT %d", pVar->pulseSrc);
-		status = writeRead(ssId, pVar, stringOut, reply);
-
-		/* encoder direction in which PSO pulses will be sent */
-		sprintf(stringOut, "PSOTRACK @0 DIRECTION %d", pVar->pulseDir);
-		status = writeRead(ssId, pVar, stringOut, reply);
-
-		if ((pVar->pulseMode == PULSE_MODE_ARRAY) || (pVar->pulseMode == PULSE_MODE_TRAJPTS)) {
-			/* Send PSO pulses at specified points. */
-			strcpy(stringOut, "PSODISTANCE @0 ARRAY");
-			status = writeRead(ssId, pVar, stringOut, reply);
-		} else if (pVar->pulseMode == PULSE_MODE_FIXED) {
-			/* Just send fixed-distance pulses.  For now, don't even worry about StartPulses, EndPulses */
-			dp = fabs(pVar->motorTrajectory[0][pVar->npoints-1] - pVar->motorTrajectory[0][0]) / pVar->npulses;
-			sprintf(stringOut, "PSODISTANCE @0 FIXED %f UNITS", dp);
-			status = writeRead(ssId, pVar, stringOut, reply);
-		}
-		strcpy(stringOut, "PSOCONTROL @0 ARM");
-		status = writeRead(ssId, pVar, stringOut, reply);
-	}
-
 
 	/* trajectory commands */
 	getMotorPositions(ssId, pVar, pVar->motorCurrent);
@@ -1479,13 +1520,10 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
 #endif
 
-#if PVT_BY_CONTROLLER
-
-	/* Get motor number into Ensemble's IGLOBAL(iarg1Var) for use by DOTRAJECTORY command. */
+	/* Get motor number. */
 	for (j=0; j<MAX_AXES; j++) {
 		if (pVar->moveAxis[j]) break;
 	}
-	status = writeIntAndCheck(ssId, pVar, iarg1Var, j);
 
 	/* Calc accel portion of trajectory.  Note epicsMotorACCL is accel time. */
 	accelTime = pVar->epicsMotorACCL[j];
@@ -1494,7 +1532,7 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 	decelTime = pVar->epicsMotorACCL[j];
 	decelDist = (pVar->velocity[j][pVar->npoints - 1] * pVar->epicsMotorACCL[j]) / 2;
 
-	n = 0;
+	n = iFirstTrajDGLOBAL;
 	status = 0;
 	status += writeDoubleAndCheck(ssId, pVar, n++, pVar->motorTrajectory[j][0]);
 	status += writeDoubleAndCheck(ssId, pVar, n++, pVar->velocity[j][0]);
@@ -1536,183 +1574,9 @@ static int loadTrajectory(SS_ID ssId, struct UserVar *pVar) {
 	status += writeDoubleAndCheck(ssId, pVar, n++, t);
 	if (status) goto bad;
 
-	/* Set Ensemble's IGLOBAL(iarg2Var) to actual number of trajectory points, including accel/decel */
-	status = writeIntAndCheck(ssId, pVar, iarg2Var, n/3);
+	/* Remember actual number of trajectory points, including accel/decel */
+	pVar->actualNumTrajectoryPoints = (n-iFirstTrajDGLOBAL)/3;
 
-#if USE_SCOPE
-	status = sendReceiveCommand(ssId, pVar, "SCOPETRIG", reply, 0);
-#endif
-
-	epicsTimeGetCurrent(&startTime);
-	sprintf(stringOut, "DOTRAJECTORY");
-	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-
-#else /* PVT_BY_CONTROLLER */
-
-#if USE_SCOPE
-	status = sendReceiveCommand(ssId, pVar, "SCOPETRIG", reply, 0);
-#endif
-	/* Program motion */
-	status = writeIntAndCheck(ssId, pVar, pvtWaitMSVar, 30);
-
-	strcpy(stringOut, "VELOCITY ON");
-	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-	if (status) goto bad;
-
-	sprintf(stringOut, "PVT INIT TIME ABS");
-	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-	if (status) goto bad;
-
-
-	for (j=0; j<MAX_AXES; j++) {
-
-		/* Calc accel portion of trajectory.  Note epicsMotorACCL is accel time. */
-		accelTime = pVar->epicsMotorACCL[j];
-		accelDist = (pVar->velocity[j][0] * pVar->epicsMotorACCL[j]) / 2;
-
-		decelTime = pVar->epicsMotorACCL[j];
-		decelDist = (pVar->velocity[j][pVar->npoints - 1] * pVar->epicsMotorACCL[j]) / 2;
-
-		if (pVar->moveAxis[j]) {
-
-			sprintf(stringOut, "PVT1 %d %f, %f TIME %f",
-				j, pVar->motorTrajectory[j][0], pVar->velocity[j][0], accelTime);
-			status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-			epicsTimeGetCurrent(&lastPvtTime);
-			if (status) {
-				/* try again */
-				printf("loadTrajectory: first PVT command returned error\n");
-				strcpy(stringOut, "TASKSTATE(1)");
-				status = writeRead(ssId, pVar, stringOut, reply);
-				printf("...TASKSTATE(1) returns '%s'\n", reply);
-				strcpy(stringOut, "TASKERROR(1)");
-				status = writeRead(ssId, pVar, stringOut, reply);
-				printf("...TASKERROR(1) returns '%s'\n", reply);
-				strcpy(stringOut, "PLANESTATUS(0)");
-				status = writeRead(ssId, pVar, stringOut, reply);
-				printf("PLANESTATUS(0) returns '%s'\n", reply);
-				strcpy(stringOut, "AXISSTATUS(@0)");
-				status = writeRead(ssId, pVar, stringOut, reply);
-				printf("AXISSTATUS(@0) returns '%s'\n", reply);
-				strcpy(stringOut, "VELOCITY OFF");
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
-				strcpy(stringOut, "STARTABORT");
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
-				status = writeRead(ssId, pVar, pVar->abortCommand, pVar->stringIn);
-
-				strcpy(stringOut, "acknowledgeall");
-				status = writeRead(ssId, pVar, stringOut, reply);
-				printf("...acknowledgeall returns '%s'\n", reply);
-				printf("...retrying first PVT command again\n", reply);
-
-				strcpy(stringOut, "VELOCITY ON");
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-				sprintf(stringOut, "PVT INIT TIME ABS");
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-				sprintf(stringOut, "PVT1 %d %f, %f TIME %f",
-					j, pVar->motorTrajectory[j][0], pVar->velocity[j][0], accelTime);
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-				epicsTimeGetCurrent(&lastPvtTime);
-				if (status) {
-					goto bad;
-				}
-			}
-
-			for (i=1; i<pVar->npoints; i++) {
-				/* Because trajectories > 14 points can't be fully preloaded, but must be loaded
-				 * while they are executing, we have to handle aborts and user notification here.
-				 */
-				if (pVar->abortState != ABORT_STATE_NONE) goto abort;
-
-				p = pVar->motorTrajectory[j][i];
-
-				t = accelTime + pVar->realTimeTrajectory[i];
-				sprintf(stringOut, "PVT1 %d %f, %f TIME %f", j, p, pVar->velocity[j][i], t);
-				status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-
-				if (pVar->debugLevel > 1) {
-					epicsTimeGetCurrent(&pvtTime);
-					dtime = epicsTimeDiffInSeconds(&pvtTime, &lastPvtTime);
-					printf("PVT at dt=%.2f %s\n", dtime, (i>14 && dtime<.1) ? "***" : "");
-					epicsTimeGetCurrent(&lastPvtTime);
-				}
-				if (status) {
-					goto bad;
-				}
-				epicsTimeGetCurrent(&currTime);
-				dtime = epicsTimeDiffInSeconds(&currTime, &lastPollTime);
-				if (dtime > POLL_INTERVAL) {
-					pVar->elapsedTime = epicsTimeDiffInSeconds(&currTime, &startTime);
-					seq_pvPut(ssId, pVar->elapsedTimeIndex, 0);
-					epicsTimeGetCurrent(&lastPollTime);
-					getMotorPositions(ssId, pVar, pVar->motorCurrent);
-					for (k=0; k<pVar->numAxes; k++) {
-						if (pVar->moveAxis[k]) {
-							seq_pvPut(ssId, pVar->motorCurrentIndex[k], 0);
-						}
-					}
-				}
-			}
-
-			/* add extra trajectory point to reduce end transient */
-			p = 2*pVar->motorTrajectory[j][pVar->npoints-1] - pVar->motorTrajectory[j][pVar->npoints-2];
-
-			t = accelTime + 2*pVar->realTimeTrajectory[pVar->npoints-1] - pVar->realTimeTrajectory[pVar->npoints-2];
-
-			sprintf(stringOut, "PVT1 %d %f, %f TIME %f", j, p, pVar->velocity[j][pVar->npoints-1], t);
-			status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-			if (status) goto bad;
-
-			p = p + decelDist*.9;
-
-			t = t + decelTime*.9;
-
-			sprintf(stringOut, "PVT1 %d %f, %f TIME %f", j, p, pVar->velocity[j][pVar->npoints-1]*.1, t);
-			status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-			if (status) goto bad;
-
-			strcpy(stringOut, "VELOCITY OFF");
-			status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-			if (status) goto bad;
-
-			p = p + decelDist*.1;
-
-			t = t + decelTime*.1;
-
-			sprintf(stringOut, "PVT1 %d %f, %f TIME %f", j, p, 0., t);
-			status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
-			if (status) goto bad;
-		}
-	}
-
-#endif /* PVT_BY_CONTROLLER */
-
-	if (pVar->abortState != ABORT_STATE_NONE) goto abort;
-	
-	strcpy(stringOut, "TASKSTATE(1)");
-	status = writeRead(ssId, pVar, stringOut, reply);
-	if (pVar->debugLevel) printf("TASKSTATE = '%s', ", reply);
-	strcpy(stringOut, "TASKERROR(1)");
-	status = writeRead(ssId, pVar, stringOut, reply);
-	if (pVar->debugLevel) printf("TASKERROR = '%s', ", reply);
-	for (i=0; i<50; i++) {
-		strcpy(stringOut, "PLANESTATUS(0)");
-		status = writeRead(ssId, pVar, stringOut, reply);
-		if (reply[1] == '3') break;
-		epicsThreadSleep(.1);
-	}
-	if (i>=50) {
-		printf("loadTrajectory: trajectory didn't start. (PLANESTATUS = '%s')\n", reply);
-		strcpy(stringOut, "VELOCITY OFF");
-		status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
-		/*strcpy(stringOut, "STARTABORT");*/
-		/*status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);*/
-		status = writeRead(ssId, pVar, pVar->abortCommand, pVar->stringIn);
-		return(-2);
-	}
-	if (pVar->debugLevel) printf("PLANESTATUS = '%s'\n", reply);
-	pVar->loadingTrajectory = 0;
-	if (pVar->debugLevel) printf("loadTrajectory: normal exit after %.1f s wait\n", i/10.);
 	return(0);
 
 bad:
@@ -1731,11 +1595,134 @@ bad:
 	status = writeRead(ssId, pVar, stringOut, reply);
 	printf("AXISSTATUS(@0) returns '%s' (%x)\n", reply, atoi(&reply[1]));
 	pVar->loadingTrajectory = 0;
-	/* return(-1); */
 	printf("loadTrajectory: aborting because of error\n");
+	*pstatus = -1;
+	return(-1);
+}
+
+static int executeTrajectory(SS_ID ssId, struct UserVar *pVar) {
+	int i, status, currPoint;
+	char stringOut[MAX_MESSAGE_STRING], reply[MAX_MESSAGE_STRING];
+	double dp;
+
+	/* digital I/O commands */
+	/* For HLe controller, set parameter Axis:I/O:EncoderDivider to nonzero
+	 * value to make the Aux I/O an output.
+	 * Also, I set the Axis:I/O:IOSetup parameter to configure the Opto Output Mode
+	 * for current sourcing.
+	 */
+	if (pVar->pulseMode != PULSE_MODE_NONE) {
+
+		strcpy(stringOut, "PSOCONTROL @0 RESET");
+		status = writeRead(ssId, pVar, stringOut, reply);
+
+		if ((pVar->pulseMode == PULSE_MODE_ARRAY) || (pVar->pulseMode == PULSE_MODE_TRAJPTS)) {
+			/* Copy from IGLOBAL variables into the drive array */
+			sprintf(stringOut, "PSOARRAY @0,%d,%d", IGLOBALINDEXSTART, pVar->numPulsePositionsLoaded);
+			status = writeRead(ssId, pVar, stringOut, reply);
+			if (pVar->debugLevel > 2) {
+				printf("executeTrajectory: copied PSOARRAY (%d elements) to drive\n", pVar->numPulsePositionsLoaded);
+			}
+			/* Send PSO pulses at specified positions. */
+			strcpy(stringOut, "PSODISTANCE @0 ARRAY");
+			status = writeRead(ssId, pVar, stringOut, reply);
+		}
+
+		/* (total time, on time) in microseconds */
+		sprintf(stringOut, "PSOPULSE @0 TIME %f,%f", pVar->pulseLenUS*1.5, pVar->pulseLenUS);
+		status = writeRead(ssId, pVar, stringOut, reply);
+		strcpy(stringOut, "PSOOUTPUT @0 PULSE");
+		status = writeRead(ssId, pVar, stringOut, reply);
+
+		/* some controllers need to track source 3 instead of 1. */
+		sprintf(stringOut, "PSOTRACK @0 INPUT %d", pVar->pulseSrc);
+		status = writeRead(ssId, pVar, stringOut, reply);
+
+		/* encoder direction in which PSO pulses will be sent */
+		sprintf(stringOut, "PSOTRACK @0 DIRECTION %d", pVar->pulseDir);
+		status = writeRead(ssId, pVar, stringOut, reply);
+
+		if ((pVar->pulseMode == PULSE_MODE_ARRAY) || (pVar->pulseMode == PULSE_MODE_TRAJPTS)) {
+			/* Send PSO pulses at specified points. */
+			strcpy(stringOut, "PSODISTANCE @0 ARRAY");
+			status = writeRead(ssId, pVar, stringOut, reply);
+		} else if (pVar->pulseMode == PULSE_MODE_FIXED) {
+			/* Just send fixed-distance pulses.  For now, don't even worry about StartPulses, EndPulses */
+			dp = fabs(pVar->motorTrajectory[0][pVar->npoints-1] - pVar->motorTrajectory[0][0]) / pVar->npulses;
+			sprintf(stringOut, "PSODISTANCE @0 FIXED %f UNITS", dp);
+			status = writeRead(ssId, pVar, stringOut, reply);
+		}
+
+		strcpy(stringOut, "PSOCONTROL @0 ARM");
+		status = writeRead(ssId, pVar, stringOut, reply);
+
+		if (pVar->debugLevel > 2) {
+			printf("executeTrajectory: sent PSO commands\n");
+		}
+	}
+
+#if USE_SCOPE
+	status = sendReceiveCommand(ssId, pVar, "SCOPETRIG", reply, 0);
+#endif
+
+	epicsTimeGetCurrent(&startTime);
+
+	/* Set Ensemble's IGLOBAL(iarg1Var) to number of motor (argument for DOSTOREDTRAJ command). */
+	for (i=0; i<MAX_AXES; i++) {
+		if (pVar->moveAxis[i]) break;
+	}
+	status = writeIntAndCheck(ssId, pVar, iarg1Var, i);
+
+	/* Set Ensemble's IGLOBAL(iarg2Var) to actual number of trajectory points. */
+	status = writeIntAndCheck(ssId, pVar, iarg2Var, pVar->actualNumTrajectoryPoints);
+
+	/* Set Ensemble's IGLOBAL(iarg3Var) to index of first trajectory point. */
+	status = writeIntAndCheck(ssId, pVar, iarg3Var, iFirstTrajDGLOBAL);
+
+	/* Set Ensemble's IGLOBAL(iarg4Var) to -1, so we can follow progress of trajectory. */
+	status = writeIntAndCheck(ssId, pVar, iarg3Var, iFirstTrajDGLOBAL);
+
+	sprintf(stringOut, "DOSTOREDTRAJ");
+	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 0);
+
+	if (pVar->abortState != ABORT_STATE_NONE) goto abort;
+	
+	strcpy(stringOut, "TASKSTATE(1)");
+	status = writeRead(ssId, pVar, stringOut, reply);
+	if (pVar->debugLevel) printf("TASKSTATE = '%s', ", reply);
+	strcpy(stringOut, "TASKERROR(1)");
+	status = writeRead(ssId, pVar, stringOut, reply);
+	if (pVar->debugLevel) printf("TASKERROR = '%s', ", reply);
+	for (i=0; i<50; i++) {
+		sprintf(stringOut, "IGLOBAL(%d)", iarg4Var);	/* get trajectory point number from controller */
+		status = writeRead(ssId, pVar, stringOut, reply);
+		currPoint = atol(&reply[1]);
+		if (pVar->debugLevel) printf("traj point = %d\n", currPoint);
+		if (currPoint > 20) break;
+		epicsThreadSleep(.1);
+	}
+	for (i=0; i<50; i++) {
+		strcpy(stringOut, "PLANESTATUS(0)");
+		status = writeRead(ssId, pVar, stringOut, reply);
+		if (reply[1] == '3') break;
+		epicsThreadSleep(.1);
+	}
+	if (i>=50) {
+		printf("executeTrajectory: trajectory didn't start. (PLANESTATUS = '%s')\n", reply);
+		strcpy(stringOut, "VELOCITY OFF");
+		status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
+		/*strcpy(stringOut, "STARTABORT");*/
+		/*status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);*/
+		status = writeRead(ssId, pVar, pVar->abortCommand, pVar->stringIn);
+		return(-2);
+	}
+	if (pVar->debugLevel) printf("PLANESTATUS = '%s'\n", reply);
+	pVar->loadingTrajectory = 0;
+	if (pVar->debugLevel) printf("executeTrajectory: normal exit after %.1f s wait\n", i/10.);
+	return(0);
 
 abort:
-	printf("loadTrajectory: aborted\n");
+	printf("executeTrajectory: aborted\n");
 	strcpy(stringOut, "VELOCITY OFF");
 	status = sendReceiveCommand(ssId, pVar, stringOut, reply, 1);
 	strcpy(stringOut, "STARTABORT");
@@ -1749,6 +1736,7 @@ abort:
 	}
 	return(-1);
 }
+
 
 double eval_fStart(double fStart, double *motorReadbacks, double scopeDataInterval, int nScopeDataPoints,
 	double *motorTrajectory, double *realTimeTrajectory, int npoints);

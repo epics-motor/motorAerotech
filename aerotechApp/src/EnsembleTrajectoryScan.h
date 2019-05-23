@@ -383,18 +383,22 @@ evflag motorMDVSMon;    sync motorMDVS  motorMDVSMon;
 #define cmdDATAACQ_OFF			23	/* DATAACQ @IGLOBAL(iarg1Var) OFF */
 #define cmdDATAACQ_READ			24	/* DATAACQ @IGLOBAL(iarg1Var) READ IGLOBAL(1arg2Var), IGLOBAL(1arg3Var) */
 #define cmdDOTRAJECTORY			25	/* for motor IGLOBAL(iarg1Var); 3*IGLOBAL(iarg2Var) DGLOBALs (PVT) have been loaded */
+#define cmdDOSTOREDTRAJ			26	/* for motor IGLOBAL(iarg1Var); 3*IGLOBAL(iarg2Var) DGLOBALs (PVT) have been loaded at IGLOBAL(iarg3Var) */
+#define cmdVERSION				27	/* ask doCommand.ab what its version number is */
 
-#define cmdVar		45
-#define iarg1Var	46
-#define iarg2Var	47
-#define iarg3Var	48
-#define iarg4Var	49
-#define darg1Var	1
-#define darg2Var	2
-#define darg3Var	3
-#define numIArg		44
-#define numDArg		43
+#define cmdVar			45
+#define iarg1Var		46
+#define iarg2Var		47
+#define iarg3Var		48
+#define iarg4Var		49
+#define darg1Var		1
+#define darg2Var		2
+#define darg3Var		3
+#define numIArg			44
+#define numDArg			43
 #define pvtWaitMSVar	42
+#define cmdAckVar		41
+#define iFirstTrajDGLOBAL	10	/* put first trajectory element into this DGLOBAL variable */
 
 /* Numerical values for first arg for cmdSCOPEDATA */
 #define sd_PositionCommand	0
