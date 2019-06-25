@@ -68,7 +68,8 @@ in file LICENSE that is included with this distribution.
 * .22 05-29-18 rls - To avoid EPICS IOC reboots after parameter file changes, update 
 *                    CountsPerUnit everytime torque is enabled. 
 * .23 06-28-18 rls - If disabling torque due to a fault, clear motorAxisProblem so that 
-*                    user can Jog off limit switch. 
+*                    user can Jog off limit switch.
+* .24 06-25-19 mrp - Set the motorAxisHomed bit in the poller function.
 */
 
 
@@ -744,6 +745,7 @@ static void EnsemblePoller(EnsembleController *pController)
                         anyMoving = true;
 
                     motorParam->setInteger(pAxis->params, motorAxisPowerOn, axisStatus.Bits.axis_enabled);
+                    motorParam->setInteger(pAxis->params, motorAxisHomed, axisStatus.Bits.home_cycle_complete);
                     motorParam->setInteger(pAxis->params, motorAxisHomeSignal, axisStatus.Bits.home_limit);
 
                     if (pAxis->ReverseDirec == true)
