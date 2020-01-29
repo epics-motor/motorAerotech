@@ -1,0 +1,1427 @@
+4 0 1
+beginScreenProperties
+major 4
+minor 0
+release 1
+x 712
+y 686
+w 450
+h 180
+font "helvetica-medium-r-18.0"
+ctlFont "helvetica-bold-r-10.0"
+btnFont "helvetica-medium-r-18.0"
+fgColor rgb 0 0 0
+bgColor rgb 55808 55808 55808
+textColor rgb 0 0 0
+ctlFgColor1 rgb 64256 62208 18944
+ctlFgColor2 rgb 60928 46592 11008
+ctlBgColor1 rgb 52480 24832 0
+ctlBgColor2 rgb 65280 45056 65280
+topShadowColor rgb 44544 19968 48128
+botShadowColor rgb 13312 13056 34304
+showGrid
+snapToGrid
+gridSize 4
+endScreenProperties
+
+# (Rectangle)
+object activeRectangleClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 0
+y 0
+w 449
+h 19
+lineColor rgb 65280 65280 65280
+fill
+fillColor rgb 65280 65280 65280
+lineWidth 0
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 10
+y 30
+w 80
+h 18
+font "helvetica-medium-r-14.0"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Start Pos"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 330
+y 30
+w 100
+h 18
+font "helvetica-medium-r-14.0"
+fontAlign "center"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "End Pos"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 93
+y 49
+w 90
+h 18
+font "helvetica-medium-r-14.0"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Scan Delta"
+}
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 7
+release 0
+x 350
+y 0
+w 100
+h 18
+controlPv "$(P)$(Q)motorName"
+format "decimal"
+font "helvetica-medium-r-14.0"
+fontAlign "center"
+fgColor rgb 2560 0 47104
+bgColor rgb 65280 65280 65280
+limitsFromDb
+nullColor rgb 60928 46592 11008
+smartRefresh
+fastUpdate
+newPos
+objType "controls"
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 25
+y 104
+w 405
+h 2
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 26
+1 429
+}
+yPoints  {
+0 105
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 25
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 26
+1 26
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 425
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 426
+1 426
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 405
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 406
+1 406
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 23
+y 130
+w 70
+h 18
+font "helvetica-medium-r-14.0"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Taxi Pos"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 350
+y 130
+w 81
+h 18
+font "helvetica-medium-r-14.0"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Motor End"
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 26
+y 109
+w 7
+h 22
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 26
+1 33
+}
+yPoints  {
+0 109
+1 131
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 40
+y 51
+w 4
+h 25
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 40
+1 44
+}
+yPoints  {
+0 51
+1 76
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 408
+y 108
+w 20
+h 19
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 428
+1 408
+}
+yPoints  {
+0 108
+1 127
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 393
+y 51
+w 11
+h 30
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 393
+1 404
+}
+yPoints  {
+0 51
+1 81
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 110
+y 75
+w 52
+h 0
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 110
+1 162
+}
+yPoints  {
+0 75
+1 75
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 158
+y 71
+w 5
+h 8
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 3 {
+xPoints  {
+0 158
+1 163
+2 158
+}
+yPoints  {
+0 71
+1 75
+2 79
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 109
+y 71
+w 5
+h 8
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 3 {
+xPoints  {
+0 114
+1 109
+2 114
+}
+yPoints  {
+0 71
+1 75
+2 79
+}
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 82
+w 302
+h 24
+
+beginGroup
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 46
+1 46
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 225
+y 82
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 226
+1 226
+}
+yPoints  {
+0 83
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 105
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 106
+1 106
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 165
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 166
+1 166
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 285
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 286
+1 286
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 345
+y 83
+w 2
+h 23
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 346
+1 346
+}
+yPoints  {
+0 84
+1 105
+}
+endObjectProperties
+
+endGroup
+
+endObjectProperties
+
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 75
+y 90
+w 302
+h 15
+
+beginGroup
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 75
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 76
+1 76
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 255
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 256
+1 256
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 135
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 136
+1 136
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 195
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 196
+1 196
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 315
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 316
+1 316
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 375
+y 90
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 376
+1 376
+}
+yPoints  {
+0 91
+1 104
+}
+endObjectProperties
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visMin 0
+visMax 1
+endObjectProperties
+
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 91
+w 345
+h 15
+
+beginGroup
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 46
+1 46
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 225
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 226
+1 226
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 105
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 106
+1 106
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 165
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 166
+1 166
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 285
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 286
+1 286
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 345
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 346
+1 346
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 87
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 88
+1 88
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 267
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 268
+1 268
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 147
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 148
+1 148
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 207
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 208
+1 208
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 327
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 328
+1 328
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 387
+y 91
+w 2
+h 15
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 388
+1 388
+}
+yPoints  {
+0 92
+1 105
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 46
+1 89
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 104
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 105
+1 148
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 165
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 166
+1 209
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 225
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 226
+1 269
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 285
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 286
+1 329
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 345
+y 91
+w 45
+h 2
+lineColor rgb 64768 0 0
+fillColor rgb 64768 0 0
+lineWidth 2
+numPoints 2 {
+xPoints  {
+0 346
+1 389
+}
+yPoints  {
+0 92
+1 92
+}
+endObjectProperties
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visInvert
+visMin 0
+visMax 1
+endObjectProperties
+
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 178
+y 111
+w 80
+h 33
+
+beginGroup
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 178
+y 126
+w 80
+h 18
+font "helvetica-medium-r-14.0"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Det Setup"
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 226
+y 111
+w 5
+h 8
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 3 {
+xPoints  {
+0 231
+1 226
+2 231
+}
+yPoints  {
+0 111
+1 115
+2 119
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 203
+y 111
+w 5
+h 8
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 3 {
+xPoints  {
+0 203
+1 208
+2 203
+}
+yPoints  {
+0 111
+1 115
+2 119
+}
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 209
+y 115
+w 16
+h 0
+lineColor rgb 0 0 0
+fillColor rgb 0 0 0
+lineWidth 0
+numPoints 2 {
+xPoints  {
+0 209
+1 225
+}
+yPoints  {
+0 115
+1 115
+}
+endObjectProperties
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visInvert
+visMin 0
+visMax 1
+endObjectProperties
+
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 0
+y 0
+w 300
+h 18
+font "helvetica-medium-r-14.0"
+fontAlign "center"
+fgColor rgb 0 0 0
+bgColor index 3
+useDisplayBg
+value {
+  "Ensemble Fly Scan $(P)$(Q)"
+}
+endObjectProperties
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 82
+w 302
+h 24
+
+beginGroup
+
+endGroup
+
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 75
+y 90
+w 302
+h 15
+
+beginGroup
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visMin 0
+visMax 1
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 45
+y 91
+w 345
+h 15
+
+beginGroup
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visInvert
+visMin 0
+visMax 1
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 178
+y 111
+w 80
+h 33
+
+beginGroup
+
+endGroup
+
+visPv "CALC\\\{(a)\}($(P)$(Q)pulseType)"
+visInvert
+visMin 0
+visMax 1
+endObjectProperties
+
+
