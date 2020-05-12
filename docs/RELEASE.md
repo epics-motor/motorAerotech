@@ -1,5 +1,23 @@
 # motorAerotech Releases
 
+## __R1-1 (2020-05-12)__
+R1-1 is a release based on the master branch.  
+
+### Changes since R1-0-1
+
+#### New features
+* Commit [03cec30](https://github.com/epics-motor/motorAerotech/commit/03cec3075b927373102bae4042e1ec7c8fbbc039): User displays can now be autoconverted at build time
+
+#### Modifications to existing features
+* Commit [aaca941](https://github.com/epics-motor/motorAerotech/commit/aaca9411ed75986ec11afc51cc8e89a7d8da3137): ``CONFIG_SITE`` now includes ``$(SUPPORT)/configure/CONFIG_SITE``, if it exists
+* Commit [7f063cc](https://github.com/epics-motor/motorAerotech/commit/7f063cc04a8ded76ce45bf48dbea0dd231e8ca44): ``SUPPORT`` is now defined in ``RELEASE``, which is needed for autoconvert
+* Commit [8f1d51a](https://github.com/epics-motor/motorAerotech/commit/8f1d51a8f721f1b19bd025c65ff2132738e6b859): User displays have been autoconverted using the latest converter
+
+#### Bug fixes
+* Pull request [#4](ttps://github.com/epics-motor/motorAerotech/pull/4): Set the motorAxisHomed bit in the poller function in drvEnsembleAsyn.cc
+* Commit [9abae64](https://github.com/epics-motor/motorAerotech/commit/9abae6420d0e7df2a7369105f577cc5f783e3a6b): Include ``$(MOTOR)/modules/RELEASE.$(EPICS_HOST_ARCH).local`` instead of ``$(MOTOR)/configure/RELEASE``
+* Pull request [#5](https://github.com/epics-motor/motorAerotech/pull/5): Eliminated compiler warnings
+
 ## __R1-0-1 (2019-08-08)__
 R1-0-1 is a release based on the master branch.  
 
