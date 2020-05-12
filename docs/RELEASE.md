@@ -14,7 +14,7 @@ R1-1 is a release based on the master branch.
 * Commit [8f1d51a](https://github.com/epics-motor/motorAerotech/commit/8f1d51a8f721f1b19bd025c65ff2132738e6b859): User displays have been autoconverted using the latest converter
 
 #### Bug fixes
-* Pull request [#4](ttps://github.com/epics-motor/motorAerotech/pull/4): Set the motorAxisHomed bit in the poller function in drvEnsembleAsyn.cc
+* Pull request [#4](https://github.com/epics-motor/motorAerotech/pull/4): Set the motorAxisHomed bit in the poller function in drvEnsembleAsyn.cc
 * Commit [9abae64](https://github.com/epics-motor/motorAerotech/commit/9abae6420d0e7df2a7369105f577cc5f783e3a6b): Include ``$(MOTOR)/modules/RELEASE.$(EPICS_HOST_ARCH).local`` instead of ``$(MOTOR)/configure/RELEASE``
 * Pull request [#5](https://github.com/epics-motor/motorAerotech/pull/5): Eliminated compiler warnings
 
