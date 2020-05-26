@@ -1,6 +1,8 @@
 # motorAerotech
 EPICS motor drivers for the following [Aerotech](https://www.aerotech.com/) controllers: A3200, Ensemble and Soloist
 
+[![Build Status](https://travis-ci.org/epics-motor/motorAerotech.png)](https://travis-ci.org/epics-motor/motorAerotech)
+
 motorAerotech is a submodule of [motor](https://github.com/epics-modules/motor).  When motorAerotech is built in the ``motor/modules`` directory, no manual configuration is needed.
 
 motorAerotech can also be built outside of motor by copying it's ``EXAMPLE_RELEASE.local`` file to ``RELEASE.local`` and defining the paths to ``MOTOR`` and itself.
