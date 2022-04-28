@@ -3,7 +3,8 @@ EPICS motor drivers for the following [Aerotech](https://www.aerotech.com/) cont
 
 EPICS motor drivers for [Automation1](https://www.aerotech.com/product/software/automation1-software-based-machine-controller/) controllers can be found in the [motorAutomation1](https://github.com/epics-motor/motorAutomation1) module.
 
-[![Build Status](https://travis-ci.org/epics-motor/motorAerotech.png)](https://travis-ci.org/epics-motor/motorAerotech)
+[![Build Status](https://github.com/epics-motor/motorAerotech/actions/workflows/ci-scripts-build.yml/badge.svg)](https://github.com/epics-motor/motorAerotech/actions/workflows/ci-scripts-build.yml)
+<!--[![Build Status](https://travis-ci.org/epics-motor/motorAerotech.png)](https://travis-ci.org/epics-motor/motorAerotech)-->
 
 motorAerotech is a submodule of [motor](https://github.com/epics-modules/motor).  When motorAerotech is built in the ``motor/modules`` directory, no manual configuration is needed.
 
