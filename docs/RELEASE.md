@@ -1,5 +1,27 @@
 # motorAerotech Releases
 
+## __R1-1-1 (2023-04-11)__
+R1-1-1 is a release based on the master branch.  
+
+### Changes since R1-1
+
+#### New features
+* None
+
+#### Modifications to existing features
+* Commit [7d65d96](https://github.com/epics-motor/motorAerotech/commit/7d65d964cb1a232f5e56515d8793ccd38c3c6820): SUPPORT has been removed from the RELEASE file; use RELEASE.local to define it instead.
+
+#### Bug fixes
+* Pull request [#10](https://github.com/epics-motor/motorAerotech/pull/10): Send "WAIT MODE NOWAIT" command at initialization to avoid communication timeouts.
+* Pull request [#11](https://github.com/epics-motor/motorAerotech/pull/11): Fix from [Ken Lauer](https://github.com/klauer) for doCommand.ab synchronization bug
+
+#### Documentation
+* Pull request [#9](https://github.com/epics-motor/motorAerotech/pull/9): Added docs/README_Ensemble.md, which includes the same content as aerotechApp/src/README but is easier to find.
+
+#### Continuous integration
+* Added ci-scripts (v3.0.1)
+* Configured to use Github Actions for CI
+
 ## __R1-1 (2020-05-12)__
 R1-1 is a release based on the master branch.  
 
