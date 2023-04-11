@@ -75,6 +75,7 @@ END HEADER
 
 PROGRAM
 
+	DIM command as Integer
 	DIM axis1Number AS Integer
 	DIM axis2Number AS Integer
 	DIM axis3Number AS Integer
@@ -99,7 +100,8 @@ PROGRAM
 		pvtWaitMS = 50
 	END IF
 	WHILE keepon
-	    IF IGLOBAL(cmdVar) = cmdPVT1 THEN
+	    command = IGLOBAL(cmdVar)
+	    IF command = cmdPVT1 THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			pos = DGLOBAL(darg1Var)
 			vel = DGLOBAL(darg2Var)
@@ -109,22 +111,22 @@ PROGRAM
 				timeInitialized = 1
 			end if
 	        PVT @axis1Number pos, vel TIME timeval
-		ELSEIF IGLOBAL(cmdVar) = cmdVELOCITY_ON THEN
+		ELSEIF command = cmdVELOCITY_ON THEN
 	        VELOCITY ON
-	    ELSEIF IGLOBAL(cmdVar) = cmdVELOCITY_OFF THEN
+	    ELSEIF command = cmdVELOCITY_OFF THEN
 	        VELOCITY OFF
-	    ELSEIF IGLOBAL(cmdVar) = cmdHALT THEN
+	    ELSEIF command = cmdHALT THEN
 	        HALT
-		ELSEIF IGLOBAL(cmdVar) = cmdSTARTABORT THEN
+		ELSEIF command = cmdSTARTABORT THEN
 			START
 			ABORT @0
 			acknowledgeall
 			enable @0
 			keepon = 0
-	    ELSEIF IGLOBAL(cmdVar) = cmdSTART THEN
+	    ELSEIF command = cmdSTART THEN
 	        START
 			keepon = 0
-	    ELSEIF IGLOBAL(cmdVar) = cmdPVT  THEN
+	    ELSEIF command = cmdPVT  THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			axis2Number = IGLOBAL(iarg2Var)
 			axis3Number = IGLOBAL(iarg3Var)
@@ -138,14 +140,14 @@ PROGRAM
 			elseif IGLOBAL(numIArg) = 4 then
 				PVT @axis1Number DGLOBAL(darg1Var), DGLOBAL(darg2Var) @axis2Number DGLOBAL(darg3Var), DGLOBAL(darg4Var) @axis3Number DGLOBAL(darg5Var), DGLOBAL(darg6Var) @axis4Number DGLOBAL(darg7Var), DGLOBAL(darg8Var) TIME DGLOBAL(darg9Var)
 			end if
-		ELSEIF IGLOBAL(cmdVar) = cmdPVT_INIT_TIME_ABS THEN
+		ELSEIF command = cmdPVT_INIT_TIME_ABS THEN
 			'PVT INIT TIME ABS
 			timeIsAbs = 1
 			timeInitialized = 0
-	    ELSEIF IGLOBAL(cmdVar) = cmdPVT_INIT_TIME_INC THEN
+	    ELSEIF command = cmdPVT_INIT_TIME_INC THEN
 			timeIsAbs = 0
 			PVT INIT TIME INC
-	    ELSEIF IGLOBAL(cmdVar) = cmdABORT THEN
+	    ELSEIF command = cmdABORT THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			axis2Number = IGLOBAL(iarg2Var)
 			axis3Number = IGLOBAL(iarg3Var)
@@ -160,10 +162,10 @@ PROGRAM
 				ABORT @axis1Number @axis2Number @axis3Number @axis4Number
 			end if
 			keepon = 0
-		ELSEIF IGLOBAL(cmdVar) = cmdSCOPEBUFFER THEN
+		ELSEIF command = cmdSCOPEBUFFER THEN
 			iarg = IGLOBAL(iarg1Var)
 			SCOPEBUFFER iarg
-		ELSEIF IGLOBAL(cmdVar) = cmdSCOPEDATA THEN
+		ELSEIF command = cmdSCOPEDATA THEN
 			iarg = IGLOBAL(iarg1Var)
 			if iarg = sd_PositionCommand then
 				DGLOBAL(darg1Var) = SCOPEDATA(PositionCommand, IGLOBAL(iarg2Var))
@@ -174,40 +176,40 @@ PROGRAM
 			else
 				DGLOBAL(darg1Var) = -1.2345654321
 			end if
-		ELSEIF IGLOBAL(cmdVar) = cmdSCOPESTATUS THEN
+		ELSEIF command = cmdSCOPESTATUS THEN
 			IGLOBAL(iarg1Var) = SCOPESTATUS(IGLOBAL(iarg1Var))
-		ELSEIF IGLOBAL(cmdVar) = cmdSCOPETRIG THEN
+		ELSEIF command = cmdSCOPETRIG THEN
 			if IGLOBAL(iarg1Var) = 1 then
 				SCOPETRIG STOP
 			ELSE
 				SCOPETRIG
 			END IF
-		ELSEIF IGLOBAL(cmdVar) = cmdSCOPETRIGPERIOD THEN
+		ELSEIF command = cmdSCOPETRIGPERIOD THEN
 			iarg = IGLOBAL(iarg1Var)
 			'SCOPETRIGPERIOD iarg
 			SCOPETRIGPERIOD iarg*1.0
 	' Not until version 4.03
-	'	ELSEIF IGLOBAL(cmdVar) = cmdDRIVEINFO THEN
+	'	ELSEIF command = cmdDRIVEINFO THEN
 	'		IGLOBAL(iarg1Var) = DRIVEINFO(X, 59)
-		ELSEIF IGLOBAL(cmdVar) = cmdLINEAR THEN
+		ELSEIF command = cmdLINEAR THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			LINEAR @axis1Number DGLOBAL(darg1Var) F DGLOBAL(darg2Var)
-		ELSEIF IGLOBAL(cmdVar) = cmdDATAACQ_TRIG THEN
+		ELSEIF command = cmdDATAACQ_TRIG THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			DATAACQ @axis1Number TRIGGER IGLOBAL(iarg2Var)
-		ELSEIF IGLOBAL(cmdVar) = cmdDATAACQ_INP THEN
+		ELSEIF command = cmdDATAACQ_INP THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			DATAACQ @axis1Number INPUT IGLOBAL(iarg2Var)
-		ELSEIF IGLOBAL(cmdVar) = cmdDATAACQ_ON THEN
+		ELSEIF command = cmdDATAACQ_ON THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			DATAACQ @axis1Number ON IGLOBAL(iarg2Var)
-		ELSEIF IGLOBAL(cmdVar) = cmdDATAACQ_OFF THEN
+		ELSEIF command = cmdDATAACQ_OFF THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			DATAACQ @axis1Number OFF
-		ELSEIF IGLOBAL(cmdVar) = cmdDATAACQ_READ THEN
+		ELSEIF command = cmdDATAACQ_READ THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			DATAACQ @axis1Number READ IGLOBAL(iarg2Var), IGLOBAL(iarg3Var)
-		ELSEIF IGLOBAL(cmdVar) = cmdDOTRAJECTORY THEN
+		ELSEIF command = cmdDOTRAJECTORY THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			numpoints = IGLOBAL(iarg2Var)
 			VELOCITY ON
@@ -222,7 +224,7 @@ PROGRAM
 				PVT @axis1Number pos, vel time timeVal
 				dwell pvtWaitMS/1000
 			next i
-		ELSEIF IGLOBAL(cmdVar) = cmdDOSTOREDTRAJ THEN
+		ELSEIF command = cmdDOSTOREDTRAJ THEN
 			axis1Number = IGLOBAL(iarg1Var)
 			numpoints = IGLOBAL(iarg2Var)
 			firstpoint = IGLOBAL(iarg3Var)
@@ -243,23 +245,23 @@ PROGRAM
 				IGLOBAL(iarg4Var) = i
 				dwell pvtWaitMS/1000
 			next i
-		ELSEIF IGLOBAL(cmdVar) = cmdVERSION then
+		ELSEIF command = cmdVERSION then
 			IGLOBAL(iarg1Var) = PROGRAM_VERSION_MAJOR
 			IGLOBAL(iarg2Var) = PROGRAM_VERSION_MINOR
-		ELSEIF IGLOBAL(cmdVar) = cmdDONE then
+		ELSEIF command = cmdDONE then
 			' do nothing
 	'	else
 	'		IGLOBAL(cmdVar) = 1000
 		END IF
 		
-		IF IGLOBAL(cmdVar) = cmdPVT1 THEN
+		IF command = cmdPVT1 THEN
 			D = pvtWaitMS/1000
 		ELSE
 			D = .001
 		END IF
 		' acknowledge command and its completion
-		if IGLOBAL(cmdVar) > 0 then
-	    	IGLOBAL(cmdAckVar) = IGLOBAL(cmdVar)
+		if command > 0 then
+		IGLOBAL(cmdAckVar) = command
 		end if
 		IGLOBAL(cmdVar) = 0
 		DWELL D
