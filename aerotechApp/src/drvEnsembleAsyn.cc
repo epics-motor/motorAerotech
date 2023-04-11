@@ -1016,6 +1016,9 @@ int EnsembleAsynConfig(int card,             /* Controller number */
         }
     }
 
+    /* Prevent ASCII interpreter from blocking during MOVEABS/INC commands */
+    sendAndReceive(pController, (char *) "WAIT MODE NOWAIT", inputBuff, sizeof(inputBuff));
+
     pController->pollEventId = epicsEventMustCreate(epicsEventEmpty);
 
     /* Create the poller thread for this controller */
